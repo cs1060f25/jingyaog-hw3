@@ -1,5 +1,4 @@
 import { NextRequest } from 'next/server';
-import { getCurrentMonthSpending, getTopCategories, monthlyBudget, calculateCurrentSavings, getDiscretionarySpending } from '@/data/mockData';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -21,12 +20,14 @@ Current user financial situation:
 - Fixed expenses: $2,200 (rent, utilities, insurance, car payment, phone)
 - Essential expenses: $800 (groceries, gas, healthcare, personal care)
 - Discretionary spending budget: $2,000
-- Current month spending: $${getCurrentMonthSpending().toLocaleString()}
-- Current savings this month: $${calculateCurrentSavings().toLocaleString()}
-- Discretionary spending this month: $${getDiscretionarySpending().toLocaleString()}
+- Current month spending: $4,350
+- Current savings this month: $650
+- Discretionary spending this month: $597
 
 Top spending categories this month:
-${getTopCategories().map(cat => `- ${cat.category}: $${cat.amount}`).join('\n')}
+- Rent: $1,200
+- Groceries: $450
+- Shopping: $300
 
 When users ask about saving money:
 1. Calculate the specific gap between current and target savings
@@ -35,10 +36,6 @@ When users ask about saving money:
 4. Show the math: "If you cut X by $Y, you'll save $Z total"
 5. Suggest starting with one category and layering improvements
 
-Example responses:
-- "Looking at your spending, to save an extra $200, you could cap dining at $150 (saving $80) and rideshare at $40 (saving $27). That gets you $107 - what matters most to you that we should protect?"
-- "You're spending $230 on dining this month. If you love going out with friends, we could focus on cutting delivery orders instead of restaurant meals. What brings you the most joy?"
-
 Remember: Be specific, show calculations, and always provide clear next steps.`;
 
 export async function POST(req: NextRequest) {
@@ -46,36 +43,40 @@ export async function POST(req: NextRequest) {
     const { messages }: { messages: Message[] } = await req.json();
 
     if (!messages || messages.length === 0) {
-      return new Response('No messages provided', { status: 400 });
+      return new Response(JSON.stringify({ error: 'No messages provided' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     const apiKey = process.env.GOOGLE_API_KEY;
     if (!apiKey) {
       console.error('GOOGLE_API_KEY not found in environment variables');
-      return new Response('API key not configured', { status: 500 });
+      return new Response(JSON.stringify({ error: 'API key not configured' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
-    // Convert messages to Gemini format
-    const geminiMessages = [
-      {
-        role: 'user',
-        parts: [{ text: SYSTEM_PROMPT }]
-      },
-      ...messages.map(msg => ({
-        role: msg.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: msg.content }]
-      }))
-    ];
-
+    // Use the non-streaming generateContent endpoint for simplicity
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:streamGenerateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          contents: geminiMessages,
+          contents: [
+            {
+              role: 'user',
+              parts: [{ text: SYSTEM_PROMPT }]
+            },
+            ...messages.map(msg => ({
+              role: msg.role === 'assistant' ? 'model' : 'user',
+              parts: [{ text: msg.content }]
+            }))
+          ],
           generationConfig: {
             temperature: 0.7,
             topK: 40,
@@ -89,68 +90,39 @@ export async function POST(req: NextRequest) {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Gemini API error:', response.status, errorText);
-      return new Response('Failed to generate response', { status: 500 });
+      return new Response(JSON.stringify({
+        error: 'Failed to generate response',
+        details: errorText
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
-    // Create a readable stream for the response
-    const encoder = new TextEncoder();
-    const decoder = new TextDecoder();
+    const data = await response.json();
 
-    const stream = new ReadableStream({
-      async start(controller) {
-        try {
-          const reader = response.body?.getReader();
-          if (!reader) {
-            controller.close();
-            return;
-          }
+    if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+      const content = data.candidates[0].content.parts[0]?.text;
+      if (content) {
+        return new Response(JSON.stringify({ message: content }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+    }
 
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            const chunk = decoder.decode(value);
-            const lines = chunk.split('\n');
-
-            for (const line of lines) {
-              if (line.trim() && line.startsWith('{')) {
-                try {
-                  const data = JSON.parse(line);
-                  if (data.candidates && data.candidates[0] && data.candidates[0].content) {
-                    const content = data.candidates[0].content.parts[0]?.text;
-                    if (content) {
-                      const sseData = `data: ${JSON.stringify({ content })}\n\n`;
-                      controller.enqueue(encoder.encode(sseData));
-                    }
-                  }
-                } catch (e) {
-                  // Ignore JSON parse errors for malformed chunks
-                }
-              }
-            }
-          }
-
-          controller.enqueue(encoder.encode('data: [DONE]\n\n'));
-          controller.close();
-        } catch (error) {
-          console.error('Stream error:', error);
-          controller.error(error);
-        }
-      },
-    });
-
-    return new Response(stream, {
-      headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-      },
+    return new Response(JSON.stringify({ error: 'No content generated' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
     });
 
   } catch (error) {
     console.error('Chat API error:', error);
-    return new Response('Internal server error', { status: 500 });
+    return new Response(JSON.stringify({
+      error: 'Internal server error',
+      details: error instanceof Error ? error.message : String(error)
+    }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 }
-
-export const runtime = 'edge';

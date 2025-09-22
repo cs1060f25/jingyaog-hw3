@@ -84,57 +84,25 @@ function ChatContent() {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to send message");
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to send message");
       }
 
-      const reader = response.body?.getReader();
-      if (!reader) {
-        throw new Error("No response reader");
+      const data = await response.json();
+
+      if (data.message) {
+        setMessages(prev => [...prev, { role: "assistant", content: data.message }]);
+      } else {
+        throw new Error("No message received from API");
       }
 
-      let assistantMessage = "";
-      const decoder = new TextDecoder();
-
-      setMessages(prev => [...prev, { role: "assistant", content: "" }]);
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value);
-        const lines = chunk.split("\n");
-
-        for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            const data = line.slice(6);
-            if (data === "[DONE]") {
-              break;
-            }
-            try {
-              const parsed = JSON.parse(data);
-              if (parsed.content) {
-                assistantMessage += parsed.content;
-                setMessages(prev =>
-                  prev.map((msg, idx) =>
-                    idx === prev.length - 1
-                      ? { ...msg, content: assistantMessage }
-                      : msg
-                  )
-                );
-              }
-            } catch (e) {
-              // Ignore JSON parse errors
-            }
-          }
-        }
-      }
     } catch (error) {
       console.error("Error:", error);
       setMessages(prev => [
-        ...prev.slice(0, -1),
+        ...prev,
         {
           role: "assistant",
-          content: "I'm sorry, I'm having trouble connecting right now. Please try again in a moment."
+          content: `I'm sorry, I'm having trouble connecting right now. Error: ${error instanceof Error ? error.message : 'Unknown error'}. Please check that your GOOGLE_API_KEY is set correctly in Vercel.`
         }
       ]);
     } finally {
