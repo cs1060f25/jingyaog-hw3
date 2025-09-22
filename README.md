@@ -2,7 +2,7 @@
 
 A Next.js 14 application that serves as your AI-powered personal financial coach, helping you save money while protecting the things you love most.
 
-The app is deployed on Vercel at *jingyaog-hw3.vercel.app*
+The app is deployed on Vercel at: **https://jingyaog-hw3.vercel.app/**
 
 ## Features
 
