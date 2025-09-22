@@ -49,7 +49,7 @@ export default function Onboarding() {
         {currentStep === "comfort" && (
           <div className="text-center">
             <h2 className="text-2xl font-bold text-gray-900 mb-6">
-              What's your comfort balance?
+              What&apos;s your comfort balance?
             </h2>
             <p className="text-gray-600 mb-6">
               How much would you like to keep in your checking account as a buffer?
@@ -87,7 +87,7 @@ export default function Onboarding() {
               Connect your bank
             </h2>
             <p className="text-gray-600 mb-6">
-              We'll use bank-level security to safely connect your accounts.
+              We&apos;ll use bank-level security to safely connect your accounts.
             </p>
             <div className="bg-gray-50 rounded-lg p-4 mb-6">
               <div className="flex items-center justify-between">
@@ -155,7 +155,7 @@ export default function Onboarding() {
               <div className="text-3xl">🎉</div>
             </div>
             <h2 className="text-2xl font-bold text-gray-900 mb-4">
-              You're all set!
+              You&apos;re all set!
             </h2>
             <p className="text-gray-600 mb-6">
               James is now analyzing your spending patterns to provide personalized insights.

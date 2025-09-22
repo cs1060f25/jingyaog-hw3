@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -9,7 +9,7 @@ interface Message {
   content: string;
 }
 
-export default function Chat() {
+function ChatContent() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -244,5 +244,13 @@ export default function Chat() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function Chat() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center">Loading...</div>}>
+      <ChatContent />
+    </Suspense>
   );
 }

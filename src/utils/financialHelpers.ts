@@ -29,7 +29,7 @@ export function calculateSavingsTarget(targetPercentage: number): SavingsTarget 
   };
 }
 
-export function generateCutSuggestions(targetGap: number): CategoryCutSuggestion[] {
+export function generateCutSuggestions(_targetGap: number): CategoryCutSuggestion[] {
   const categoryTotals = getCategoryTotals();
   const suggestions: CategoryCutSuggestion[] = [];
 
