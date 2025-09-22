@@ -1,0 +1,13 @@
+{
+  "name": "hello-world-vercel",
+  "version": "1.0.0",
+  "description": "Simple Hello World web application for Vercel",
+  "main": "index.html",
+  "scripts": {
+    "dev": "python3 -m http.server 3000",
+    "start": "python3 -m http.server 3000"
+  },
+  "keywords": ["hello-world", "vercel", "web-app"],
+  "author": "",
+  "license": "MIT"
+}
